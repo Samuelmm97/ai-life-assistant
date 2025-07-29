@@ -30,7 +30,12 @@
   - Implement basic navigation and user interface
   - _Requirements: 1.1, 1.2, 15.1_
 
-- [ ] 3. Implement Basic SMART Goal Engine
+- [x] 3. Implement Basic SMART Goal Engine
+
+
+
+
+
   - Create simple SMART goal validation logic
   - Build basic goal creation workflow with SMART criteria guidance
   - Implement simple action plan generation (manual task creation)
@@ -38,7 +43,12 @@
   - Connect frontend to backend with simple API endpoints
   - _Requirements: 1.1, 1.2, 1.3_
 
-- [ ] 4. Add Basic Calendar Integration MVP
+- [x] 4. Add Basic Calendar Integration MVP
+
+
+
+
+
   - Implement simple calendar view component in frontend
   - Create basic schedule entry creation and management
   - Build simple calendar import functionality (Google Calendar)

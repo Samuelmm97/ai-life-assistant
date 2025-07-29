@@ -4,67 +4,76 @@ import { GoalForm } from './components/GoalForm';
 import { Dashboard } from './components/Dashboard';
 import { Navigation } from './components/Navigation';
 import { GoalManager } from './components/GoalManager';
+import { Calendar } from './components/Calendar';
 import { SMARTGoal } from './types';
+import { GoalService } from './services/GoalService';
 
-type View = 'dashboard' | 'create-goal' | 'manage-goals';
+type View = 'dashboard' | 'create-goal' | 'manage-goals' | 'calendar';
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [goals, setGoals] = useState<SMARTGoal[]>([]);
+  const [goalService] = useState(() => new GoalService());
+  const [currentUserId] = useState('user-1'); // Mock user ID for MVP
 
-  // Load goals from localStorage on component mount
+  // Load goals from the goal service on component mount
   useEffect(() => {
-    const savedGoals = localStorage.getItem('ai-life-assistant-goals');
-    if (savedGoals) {
+    const loadGoals = async () => {
       try {
-        const parsedGoals = JSON.parse(savedGoals);
-        // Convert date strings back to Date objects
-        const goalsWithDates = parsedGoals.map((goal: any) => ({
-          ...goal,
-          timeBound: {
-            ...goal.timeBound,
-            startDate: new Date(goal.timeBound.startDate),
-            endDate: new Date(goal.timeBound.endDate),
-            milestones: goal.timeBound.milestones.map((m: string) => new Date(m))
-          },
-          createdAt: new Date(goal.createdAt),
-          updatedAt: new Date(goal.updatedAt)
-        }));
-        setGoals(goalsWithDates);
+        const userGoals = await goalService.getUserGoals(currentUserId);
+        setGoals(userGoals);
       } catch (error) {
-        console.error('Error loading goals from localStorage:', error);
+        console.error('Error loading goals:', error);
       }
-    }
-  }, []);
-
-  // Save goals to localStorage whenever goals change
-  useEffect(() => {
-    localStorage.setItem('ai-life-assistant-goals', JSON.stringify(goals));
-  }, [goals]);
-
-  const handleCreateGoal = (goalData: Omit<SMARTGoal, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => {
-    const newGoal: SMARTGoal = {
-      ...goalData,
-      id: `goal-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-      userId: 'user-1', // Mock user ID for MVP
-      createdAt: new Date(),
-      updatedAt: new Date()
     };
-    
-    setGoals(prev => [...prev, newGoal]);
-    setCurrentView('dashboard');
+
+    loadGoals();
+  }, [goalService, currentUserId]);
+
+  const handleCreateGoal = async (goalData: Omit<SMARTGoal, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const result = await goalService.createGoal(currentUserId, goalData);
+      setGoals(prev => [...prev, result.goal]);
+      setCurrentView('dashboard');
+
+      // Show validation feedback if there were warnings
+      if (result.validation.warnings.length > 0 || result.validation.suggestions.length > 0) {
+        console.log('Goal created with recommendations:', result.validation);
+      }
+    } catch (error) {
+      console.error('Error creating goal:', error);
+      alert('Failed to create goal. Please check the form and try again.');
+    }
   };
 
-  const handleUpdateGoal = (goalId: string, updates: Partial<SMARTGoal>) => {
-    setGoals(prev => prev.map(goal => 
-      goal.id === goalId 
-        ? { ...goal, ...updates, updatedAt: new Date() }
-        : goal
-    ));
+  const handleUpdateGoal = async (goalId: string, updates: Partial<SMARTGoal>) => {
+    try {
+      const updatedGoal = await goalService.updateGoal(goalId, updates);
+      if (updatedGoal) {
+        setGoals(prev => prev.map(goal => 
+          goal.id === goalId ? updatedGoal : goal
+        ));
+      }
+    } catch (error) {
+      console.error('Error updating goal:', error);
+    }
   };
 
-  const handleDeleteGoal = (goalId: string) => {
-    setGoals(prev => prev.filter(goal => goal.id !== goalId));
+  const handleDeleteGoal = async (goalId: string) => {
+    try {
+      const success = await goalService.deleteGoal(goalId);
+      if (success) {
+        setGoals(prev => prev.filter(goal => goal.id !== goalId));
+      }
+    } catch (error) {
+      console.error('Error deleting goal:', error);
+    }
+  };
+
+  const handleGoalClick = (goalId: string) => {
+    setCurrentView('manage-goals');
+  // We'll need to pass the selected goal ID to the GoalManager
+  // For now, the user can select it from the list
   };
 
   const renderCurrentView = () => {
@@ -79,9 +88,16 @@ function App() {
             onDeleteGoal={handleDeleteGoal}
           />
         );
+      case 'calendar':
+        return (
+          <Calendar
+            userId={currentUserId}
+            goals={goals}
+          />
+        );
       case 'dashboard':
       default:
-        return <Dashboard goals={goals} />;
+        return <Dashboard goals={goals} onGoalClick={handleGoalClick} />;
     }
   };
 

@@ -1,12 +1,57 @@
 import { UserModel, User } from '../models/User';
 import { SMARTGoalModel } from '../models/SMARTGoal';
 import { ActionPlanModel, ActionPlan } from '../models/ActionPlan';
-import { SMARTGoal } from '../types';
+import { SMARTGoal, ScheduleEntry } from '../types';
 
 export class InMemoryDatabase {
+  private static instance: InMemoryDatabase;
   private users: Map<string, UserModel> = new Map();
   private goals: Map<string, SMARTGoalModel> = new Map();
   private actionPlans: Map<string, ActionPlanModel> = new Map();
+  private scheduleEntriesMap: Map<string, ScheduleEntry> = new Map();
+
+  public static getInstance(): InMemoryDatabase {
+    if (!InMemoryDatabase.instance) {
+      InMemoryDatabase.instance = new InMemoryDatabase();
+    }
+    return InMemoryDatabase.instance;
+  }
+
+  // Schedule Entry operations
+  public scheduleEntries = {
+    create: async (entry: ScheduleEntry): Promise<ScheduleEntry> => {
+      this.scheduleEntriesMap.set(entry.id, entry);
+      return entry;
+    },
+
+    findById: async (id: string): Promise<ScheduleEntry | null> => {
+      return this.scheduleEntriesMap.get(id) || null;
+    },
+
+    findByUserId: async (userId: string): Promise<ScheduleEntry[]> => {
+      return Array.from(this.scheduleEntriesMap.values()).filter(entry => entry.userId === userId);
+    },
+
+    findByGoalId: async (goalId: string): Promise<ScheduleEntry[]> => {
+      return Array.from(this.scheduleEntriesMap.values()).filter(entry => entry.goalId === goalId);
+    },
+
+    update: async (id: string, updates: ScheduleEntry): Promise<ScheduleEntry | null> => {
+      if (this.scheduleEntriesMap.has(id)) {
+        this.scheduleEntriesMap.set(id, updates);
+        return updates;
+      }
+      return null;
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      return this.scheduleEntriesMap.delete(id);
+    },
+
+    findAll: async (): Promise<ScheduleEntry[]> => {
+      return Array.from(this.scheduleEntriesMap.values());
+    }
+  };
 
   // User operations
   public createUser(userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): UserModel {
@@ -124,13 +169,15 @@ export class InMemoryDatabase {
     this.users.clear();
     this.goals.clear();
     this.actionPlans.clear();
+    this.scheduleEntriesMap.clear();
   }
 
-  public getStats(): { users: number; goals: number; actionPlans: number } {
+  public getStats(): { users: number; goals: number; actionPlans: number; scheduleEntries: number } {
     return {
       users: this.users.size,
       goals: this.goals.size,
-      actionPlans: this.actionPlans.size
+      actionPlans: this.actionPlans.size,
+      scheduleEntries: this.scheduleEntriesMap.size
     };
   }
 }

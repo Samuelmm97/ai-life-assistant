@@ -3,12 +3,12 @@ import { GoalStatus, SMARTGoal } from '../types';
 
 interface DashboardProps {
   goals: SMARTGoal[];
+  onGoalClick?: (goalId: string) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ goals }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ goals, onGoalClick }) => {
   const activeGoals = goals.filter(goal => goal.status === GoalStatus.ACTIVE);
   const completedGoals = goals.filter(goal => goal.status === GoalStatus.COMPLETED);
-  const totalProgress = goals.length > 0 ? (completedGoals.length / goals.length) * 100 : 0;
 
   const getProgressForGoal = (goal: SMARTGoal): number => {
     if (goal.status === GoalStatus.COMPLETED) return 100;
@@ -21,6 +21,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ goals }) => {
     
     return totalProgress / goal.measurable.length;
   };
+
+  // Calculate overall progress based on individual goal progress, not just completed goals
+  const calculateOverallProgress = () => {
+    if (goals.length === 0) return 0;
+
+    const totalProgress = goals.reduce((sum, goal) => {
+      if (goal.status === GoalStatus.COMPLETED) return sum + 100;
+      if (goal.status === GoalStatus.CANCELLED) return sum + 0;
+
+      // Calculate progress for active/paused goals
+      const goalProgress = getProgressForGoal(goal);
+      return sum + goalProgress;
+    }, 0);
+
+    return totalProgress / goals.length;
+  };
+
+  const totalProgress = calculateOverallProgress();
 
   const getDaysRemaining = (endDate: Date): number => {
     const today = new Date();
@@ -69,7 +87,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ goals }) => {
               const daysRemaining = getDaysRemaining(goal.timeBound.endDate);
               
               return (
-                <div key={goal.id} className="goal-card">
+                <div
+                  key={goal.id}
+                  className="goal-card clickable"
+                  onClick={() => onGoalClick && onGoalClick(goal.id)}
+                  title="Click to view and manage this goal"
+                >
                   <div className="goal-header">
                     <h4>{goal.title}</h4>
                     <span className={`status-badge ${goal.status}`}>
@@ -89,7 +112,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ goals }) => {
                   </div>
                   
                   <div className="goal-meta">
-                    <span className="days-remaining">
+                    <span className={`days-remaining ${daysRemaining < 0 ? 'overdue' : ''}`}>
                       {daysRemaining > 0 ? `${daysRemaining} days left` : 'Overdue'}
                     </span>
                     <span className="domain-tags">
@@ -97,6 +120,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ goals }) => {
                         <span key={domain} className="domain-tag">{domain}</span>
                       ))}
                     </span>
+                  </div>
+                  <div className="goal-click-hint">
+                    <span>👆 Click to manage</span>
                   </div>
                 </div>
               );

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GoalStatus, LifeDomain, MeasurableMetric, AchievabilityAssessment, RelevanceContext, TimeConstraint, SMARTGoal } from '../types';
+import { GoalService } from '../services/GoalService';
+import { ValidationResult } from '../services/SMARTGoalEngine';
 
 interface GoalFormProps {
   onSubmit: (goal: Omit<SMARTGoal, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => void;
@@ -7,6 +9,9 @@ interface GoalFormProps {
 }
 
 export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
+  const [goalService] = useState(() => new GoalService());
+  const [validation, setValidation] = useState<ValidationResult | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -30,9 +35,47 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
     status: GoalStatus.ACTIVE
   });
 
+  // Validate form data whenever it changes (debounced)
+  useEffect(() => {
+    const timeoutId = setTimeout(async () => {
+      if (formData.title && formData.specific) {
+        setIsValidating(true);
+        try {
+          const goalData: Omit<SMARTGoal, 'id' | 'userId' | 'createdAt' | 'updatedAt'> = {
+            ...formData,
+            achievable: {
+              ...formData.achievable,
+              requiredResources: formData.achievable.requiredResources.filter(r => r.trim() !== '')
+            },
+            relevant: {
+              ...formData.relevant,
+              personalValues: formData.relevant.personalValues.filter(v => v.trim() !== '')
+            },
+            timeBound: {
+              startDate: new Date(formData.timeBound.startDate),
+              endDate: new Date(formData.timeBound.endDate),
+              milestones: formData.timeBound.milestones
+                .filter(m => m.trim() !== '')
+                .map(m => new Date(m))
+            }
+          };
+
+          const validationResult = await goalService.validateGoal(goalData);
+          setValidation(validationResult);
+        } catch (error) {
+          console.error('Validation error:', error);
+        } finally {
+          setIsValidating(false);
+        }
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [formData, goalService]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Convert form data to proper types
     const goalData: Omit<SMARTGoal, 'id' | 'userId' | 'createdAt' | 'updatedAt'> = {
       ...formData,
@@ -66,7 +109,7 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
   const updateMeasurableMetric = (index: number, field: keyof MeasurableMetric, value: string | number) => {
     setFormData(prev => ({
       ...prev,
-      measurable: prev.measurable.map((metric, i) => 
+      measurable: prev.measurable.map((metric, i) =>
         i === index ? { ...metric, [field]: value } : metric
       )
     }));
@@ -87,7 +130,7 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
       ...prev,
       achievable: {
         ...prev.achievable,
-        requiredResources: prev.achievable.requiredResources.map((resource, i) => 
+        requiredResources: prev.achievable.requiredResources.map((resource, i) =>
           i === index ? value : resource
         )
       }
@@ -109,7 +152,7 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
       ...prev,
       relevant: {
         ...prev.relevant,
-        personalValues: prev.relevant.personalValues.map((val, i) => 
+        personalValues: prev.relevant.personalValues.map((val, i) =>
           i === index ? value : val
         )
       }
@@ -143,12 +186,134 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
       ...prev,
       timeBound: {
         ...prev.timeBound,
-        milestones: prev.timeBound.milestones.map((milestone, i) => 
+        milestones: prev.timeBound.milestones.map((milestone, i) =>
           i === index ? value : milestone
         )
       }
     }));
   };
+
+  // Helper function to get field validation status
+  const getFieldValidation = (fieldName: string) => {
+    if (!validation) return { hasError: false, hasWarning: false, messages: [] };
+
+    const errors = validation.errors.filter(error =>
+      error.toLowerCase().includes(fieldName.toLowerCase())
+    );
+    const warnings = validation.warnings.filter(warning =>
+      warning.toLowerCase().includes(fieldName.toLowerCase())
+    );
+
+    return {
+      hasError: errors.length > 0,
+      hasWarning: warnings.length > 0,
+      messages: [...errors, ...warnings]
+    };
+  };
+
+  // Helper function to check if field is required and empty
+  const isFieldRequired = (fieldName: string, value: any) => {
+    const requiredFields = {
+      title: !value || (typeof value === 'string' && value.trim().length === 0),
+      specific: !value || (typeof value === 'string' && value.trim().length < 10),
+      measurable: !value || !Array.isArray(value) || value.length === 0 || value.some((m: any) => !m.name || !m.unit || m.targetValue <= 0),
+      endDate: !value || value === '',
+      startDate: !value || value === ''
+    };
+
+    return requiredFields[fieldName as keyof typeof requiredFields] || false;
+  };
+
+  // Helper functions for progress tracking
+  const getTotalRequiredFields = () => 5; // title, specific, measurable, startDate, endDate
+
+  const getCompletedFieldsCount = () => {
+    let completed = 0;
+
+    // Check title
+    if (formData.title && typeof formData.title === 'string' && formData.title.trim().length > 0) completed++;
+
+    // Check specific (minimum 10 characters)
+    if (formData.specific && typeof formData.specific === 'string' && formData.specific.trim().length >= 10) completed++;
+
+    // Check measurable (at least one valid metric)
+    if (Array.isArray(formData.measurable) && formData.measurable.length > 0 &&
+      formData.measurable.some(m => m.name && m.unit && m.targetValue > 0)) completed++;
+
+    // Check start date
+    if (formData.timeBound.startDate && formData.timeBound.startDate !== '') completed++;
+
+    // Check end date
+    if (formData.timeBound.endDate && formData.timeBound.endDate !== '') completed++;
+
+    return completed;
+  };
+
+  const getFormCompletionPercentage = () => {
+    return Math.round((getCompletedFieldsCount() / getTotalRequiredFields()) * 100);
+  };
+
+  const ValidationFeedback: React.FC<{ validation: ValidationResult }> = ({ validation }) => (
+    <div className={`validation-feedback ${validation.isValid ? 'valid' : 'invalid'}`}>
+      {validation.errors.length > 0 && (
+        <div className="validation-errors animate-slide-in">
+          <div className="validation-header">
+            <span className="validation-icon">❌</span>
+            <h4>Issues to Fix ({validation.errors.length})</h4>
+          </div>
+          <ul>
+            {validation.errors.map((error, index) => (
+              <li key={index} className="animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
+                {error}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {validation.warnings.length > 0 && (
+        <div className="validation-warnings animate-slide-in">
+          <div className="validation-header">
+            <span className="validation-icon">⚠️</span>
+            <h4>Recommendations ({validation.warnings.length})</h4>
+          </div>
+          <ul>
+            {validation.warnings.map((warning, index) => (
+              <li key={index} className="animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
+                {warning}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {validation.suggestions.length > 0 && (
+        <div className="validation-suggestions animate-slide-in">
+          <div className="validation-header">
+            <span className="validation-icon">💡</span>
+            <h4>Suggestions ({validation.suggestions.length})</h4>
+          </div>
+          <ul>
+            {validation.suggestions.map((suggestion, index) => (
+              <li key={index} className="animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
+                {suggestion}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {validation.isValid && (
+        <div className="validation-success animate-bounce-in">
+          <div className="validation-header">
+            <span className="validation-icon">✅</span>
+            <h4>Your goal meets SMART criteria!</h4>
+          </div>
+          <p>Ready to create your goal and action plan.</p>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="goal-form">
@@ -157,12 +322,45 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
         <p>Follow the SMART criteria to create a well-structured, achievable goal</p>
       </div>
 
+      {/* Real-time validation feedback */}
+      {validation && (
+        <ValidationFeedback validation={validation} />
+      )}
+
+      {isValidating && (
+        <div className="validation-loading">
+          <p>🔄 Validating your goal...</p>
+        </div>
+      )}
+
+      {/* Form Progress Indicator */}
+      <div className="form-progress">
+        <div className="progress-header">
+          <h4>Form Completion Progress</h4>
+          <span className="progress-percentage">{getFormCompletionPercentage()}%</span>
+        </div>
+        <div className="progress-bar">
+          <div
+            className="progress-fill"
+            style={{ width: `${getFormCompletionPercentage()}%` }}
+          ></div>
+        </div>
+        <div className="progress-details">
+          <span className="progress-text">
+            {getCompletedFieldsCount()}/{getTotalRequiredFields()} required fields completed
+          </span>
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit}>
         {/* Basic Information */}
         <div className="form-section">
           <h3>Basic Information</h3>
-          <div className="form-group">
-            <label htmlFor="title">Goal Title *</label>
+          <div className={`form-group ${getFieldValidation('title').hasError ? 'has-error' : ''} ${isFieldRequired('title', formData.title) ? 'required-empty' : ''}`}>
+            <label htmlFor="title">
+              Goal Title <span className="required-indicator">*</span>
+              {getFieldValidation('title').hasError && <span className="error-indicator animate-shake">⚠️</span>}
+            </label>
             <input
               type="text"
               id="title"
@@ -170,7 +368,15 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, title: e.target.value }))}
               required
               placeholder="e.g., Learn Spanish"
+              className={getFieldValidation('title').hasError ? 'error' : ''}
             />
+            {getFieldValidation('title').messages.length > 0 && (
+              <div className="field-validation-messages">
+                {getFieldValidation('title').messages.map((message, index) => (
+                  <span key={index} className="field-error animate-fade-in">{message}</span>
+                ))}
+              </div>
+            )}
           </div>
           <div className="form-group">
             <label htmlFor="description">Description</label>
@@ -187,59 +393,102 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
         {/* Specific */}
         <div className="form-section">
           <h3>S - Specific</h3>
-          <div className="form-group">
-            <label htmlFor="specific">What exactly do you want to accomplish? *</label>
+          <div className={`form-group ${getFieldValidation('specific').hasError ? 'has-error' : ''} ${isFieldRequired('specific', formData.specific) ? 'required-empty' : ''}`}>
+            <label htmlFor="specific">
+              What exactly do you want to accomplish? <span className="required-indicator">*</span>
+              {getFieldValidation('specific').hasError && <span className="error-indicator animate-shake">⚠️</span>}
+            </label>
             <textarea
               id="specific"
               value={formData.specific}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData(prev => ({ ...prev, specific: e.target.value }))}
               required
-              placeholder="Be as detailed as possible about what you want to achieve"
+              placeholder="Be as detailed as possible about what you want to achieve (minimum 10 characters)"
               rows={3}
+              className={getFieldValidation('specific').hasError ? 'error' : ''}
             />
+            <div className="field-helper">
+              <span className={`char-counter ${(formData.specific || '').length < 10 ? 'insufficient' : 'sufficient'}`}>
+                {(formData.specific || '').length}/10 characters minimum
+              </span>
+            </div>
+            {getFieldValidation('specific').messages.length > 0 && (
+              <div className="field-validation-messages">
+                {getFieldValidation('specific').messages.map((message, index) => (
+                  <span key={index} className="field-error animate-fade-in">{message}</span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Measurable */}
         <div className="form-section">
           <h3>M - Measurable</h3>
-          <p>How will you measure progress and success?</p>
-          {formData.measurable.map((metric, index) => (
-            <div key={index} className="metric-group">
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Metric Name</label>
-                  <input
-                    type="text"
-                    value={metric.name}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateMeasurableMetric(index, 'name', e.target.value)}
-                    placeholder="e.g., Vocabulary words learned"
-                  />
+          <div className={`form-group ${getFieldValidation('measurable').hasError ? 'has-error' : ''} ${isFieldRequired('measurable', formData.measurable) ? 'required-empty' : ''}`}>
+            <label>
+              How will you measure progress and success? <span className="required-indicator">*</span>
+              {getFieldValidation('measurable').hasError && <span className="error-indicator animate-shake">⚠️</span>}
+            </label>
+            <p className="field-description">At least one metric is required to track your progress</p>
+
+            {formData.measurable.map((metric, index) => {
+              const hasMetricError = !metric.name || !metric.unit || metric.targetValue <= 0;
+              return (
+                <div key={index} className={`metric-group ${hasMetricError ? 'metric-error' : 'metric-valid'}`}>
+                  <div className="metric-header">
+                    <span className="metric-number">Metric {index + 1}</span>
+                    {hasMetricError && <span className="metric-error-icon animate-pulse">⚠️</span>}
+                    {!hasMetricError && <span className="metric-valid-icon">✅</span>}
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Metric Name <span className="required-indicator">*</span></label>
+                      <input
+                        type="text"
+                        value={metric.name}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateMeasurableMetric(index, 'name', e.target.value)}
+                        placeholder="e.g., Vocabulary words learned"
+                        className={!metric.name ? 'error' : ''}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Unit <span className="required-indicator">*</span></label>
+                      <input
+                        type="text"
+                        value={metric.unit}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateMeasurableMetric(index, 'unit', e.target.value)}
+                        placeholder="e.g., words, hours, pages"
+                        className={!metric.unit ? 'error' : ''}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Target Value <span className="required-indicator">*</span></label>
+                      <input
+                        type="number"
+                        value={metric.targetValue}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateMeasurableMetric(index, 'targetValue', Number(e.target.value))}
+                        min="1"
+                        className={metric.targetValue <= 0 ? 'error' : ''}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Unit</label>
-                  <input
-                    type="text"
-                    value={metric.unit}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateMeasurableMetric(index, 'unit', e.target.value)}
-                    placeholder="e.g., words, hours, pages"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Target Value</label>
-                  <input
-                    type="number"
-                    value={metric.targetValue}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateMeasurableMetric(index, 'targetValue', Number(e.target.value))}
-                    min="0"
-                  />
-                </div>
+              );
+            })}
+
+            <button type="button" onClick={addMeasurableMetric} className="add-button">
+              + Add Metric
+            </button>
+
+            {getFieldValidation('measurable').messages.length > 0 && (
+              <div className="field-validation-messages">
+                {getFieldValidation('measurable').messages.map((message, index) => (
+                  <span key={index} className="field-error animate-fade-in">{message}</span>
+                ))}
               </div>
-            </div>
-          ))}
-          <button type="button" onClick={addMeasurableMetric} className="add-button">
-            + Add Metric
-          </button>
+            )}
+          </div>
         </div>
 
         {/* Achievable */}
@@ -261,7 +510,7 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
               <option value="difficult">Difficult</option>
             </select>
           </div>
-          
+
           <div className="form-group">
             <label>Required Resources</label>
             {formData.achievable.requiredResources.map((resource, index) => (
@@ -368,8 +617,10 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
         <div className="form-section">
           <h3>T - Time-bound</h3>
           <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="startDate">Start Date *</label>
+            <div className={`form-group ${isFieldRequired('startDate', formData.timeBound.startDate) ? 'required-empty' : ''}`}>
+              <label htmlFor="startDate">
+                Start Date <span className="required-indicator">*</span>
+              </label>
               <input
                 type="date"
                 id="startDate"
@@ -379,10 +630,14 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
                   timeBound: { ...prev.timeBound, startDate: e.target.value }
                 }))}
                 required
+                className={isFieldRequired('startDate', formData.timeBound.startDate) ? 'error' : ''}
               />
             </div>
-            <div className="form-group">
-              <label htmlFor="endDate">End Date *</label>
+            <div className={`form-group ${isFieldRequired('endDate', formData.timeBound.endDate) ? 'required-empty' : ''} ${getFieldValidation('time-bound').hasError ? 'has-error' : ''}`}>
+              <label htmlFor="endDate">
+                End Date <span className="required-indicator">*</span>
+                {getFieldValidation('time-bound').hasError && <span className="error-indicator animate-shake">⚠️</span>}
+              </label>
               <input
                 type="date"
                 id="endDate"
@@ -392,7 +647,15 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
                   timeBound: { ...prev.timeBound, endDate: e.target.value }
                 }))}
                 required
+                className={isFieldRequired('endDate', formData.timeBound.endDate) || getFieldValidation('time-bound').hasError ? 'error' : ''}
               />
+              {getFieldValidation('time-bound').messages.length > 0 && (
+                <div className="field-validation-messages">
+                  {getFieldValidation('time-bound').messages.map((message, index) => (
+                    <span key={index} className="field-error animate-fade-in">{message}</span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -413,12 +676,49 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
         </div>
 
         <div className="form-actions">
-          <button type="button" onClick={onCancel} className="cancel-button">
-            Cancel
-          </button>
-          <button type="submit" className="submit-button">
-            Create Goal
-          </button>
+          <div className="form-status">
+            {validation && !validation.isValid && (
+              <div className="form-status-message error animate-fade-in">
+                <span className="status-icon">⚠️</span>
+                Please fix {validation.errors.length} issue{validation.errors.length !== 1 ? 's' : ''} before creating your goal
+              </div>
+            )}
+            {validation && validation.isValid && (
+              <div className="form-status-message success animate-fade-in">
+                <span className="status-icon">✅</span>
+                Your goal is ready to be created!
+              </div>
+            )}
+            {!validation && getFormCompletionPercentage() < 100 && (
+              <div className="form-status-message incomplete animate-fade-in">
+                <span className="status-icon">📝</span>
+                Complete all required fields to validate your goal
+              </div>
+            )}
+          </div>
+
+          <div className="action-buttons">
+            <button type="button" onClick={onCancel} className="cancel-button">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={`submit-button ${validation && validation.isValid ? 'ready' : 'disabled'}`}
+              disabled={validation ? !validation.isValid : true}
+            >
+              {validation && validation.isValid ? (
+                <>
+                  <span className="button-icon">🚀</span>
+                  Create Goal
+                </>
+              ) : (
+                <>
+                  <span className="button-icon">⏳</span>
+                  {validation ? 'Fix Issues First' : 'Complete Form'}
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </form>
     </div>

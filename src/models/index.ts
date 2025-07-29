@@ -10,3 +10,5 @@ export type {
   Resource
 } from './ActionPlan';
 export { ActionPlanModel } from './ActionPlan';
+export { ScheduleEntryModel } from './ScheduleEntry';
+export { CalendarConflictModel } from './CalendarConflict';
