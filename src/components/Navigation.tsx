@@ -1,14 +1,15 @@
 import React from 'react';
 
-type View = 'dashboard' | 'create-goal' | 'manage-goals' | 'calendar';
+type View = 'dashboard' | 'create-goal' | 'manage-goals' | 'calendar' | 'adk-test';
 
 interface NavigationProps {
   currentView: View;
   onViewChange: (view: View) => void;
   goalCount: number;
+  adkEnabled?: boolean;
 }
 
-export const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange, goalCount }) => {
+export const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange, goalCount, adkEnabled = false }) => {
   return (
     <nav className="navigation">
       <div className="nav-brand">
@@ -44,11 +45,21 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChang
         >
           📅 Calendar
         </button>
+
+        <button
+          className={`nav-button ${currentView === 'adk-test' ? 'active' : ''}`}
+          onClick={() => onViewChange('adk-test')}
+        >
+          🧪 ADK Test
+        </button>
       </div>
 
       <div className="nav-stats">
         <span className="goal-count">
           {goalCount} {goalCount === 1 ? 'Goal' : 'Goals'}
+        </span>
+        <span className={`adk-status ${adkEnabled ? '' : 'disabled'}`}>
+          ADK {adkEnabled ? 'Active' : 'Inactive'}
         </span>
       </div>
     </nav>

@@ -2,9 +2,9 @@
 
 ## Overview
 
-The AI Life Assistant is designed as a modular, AI-driven platform that orchestrates multiple life management domains through intelligent agents. The system follows a domain-driven architecture where each life area (fitness, nutrition, finance, etc.) is managed by specialized agents that can collaborate and share context. The core innovation lies in the SMART goal engine that serves as the central orchestrator, ensuring all domain plans align with user objectives and integrate seamlessly with existing schedules.
+The AI Life Assistant is designed as a modular, AI-driven platform built on Google's Agent Development Kit (ADK) that orchestrates multiple life management domains through intelligent agents. The system leverages ADK's multi-agent architecture where each life area (fitness, nutrition, finance, etc.) is managed by specialized ADK agents that can collaborate and share context through ADK's flexible orchestration patterns. The core innovation lies in the SMART goal engine that serves as the central orchestrator, ensuring all domain plans align with user objectives and integrate seamlessly with existing schedules.
 
-The platform uses a microservices architecture with a central coordination layer, allowing for independent scaling and development of different life domains while maintaining tight integration through shared data models and event-driven communication.
+The platform uses ADK's model-agnostic framework with Sequential, Parallel, and Loop workflow agents for predictable pipelines, while leveraging LLM-driven dynamic routing for adaptive behavior. This enables independent scaling and development of different life domains while maintaining tight integration through ADK's rich tool ecosystem and agent communication patterns.
 
 ## Architecture
 
@@ -13,144 +13,172 @@ The platform uses a microservices architecture with a central coordination layer
 ```mermaid
 graph TB
     UI[Web/Mobile UI] --> API[API Gateway]
-    API --> Core[Core Orchestration Service]
+    API --> ADKOrchestrator[ADK Orchestration Layer]
     
-    Core --> SMART[SMART Goal Engine]
-    Core --> Scheduler[Intelligent Scheduler]
-    Core --> Analytics[Analytics Engine]
+    ADKOrchestrator --> MasterAgent[Master Workflow Agent]
+    MasterAgent --> SMARTAgent[SMART Goal Agent]
+    MasterAgent --> SchedulerAgent[Scheduler Agent]
+    MasterAgent --> AnalyticsAgent[Analytics Agent]
     
-    SMART --> DomainAgents[Domain Agent Services]
-    Scheduler --> DomainAgents
-    Analytics --> DomainAgents
+    SMARTAgent --> DomainWorkflow[Domain Agent Workflows]
+    SchedulerAgent --> DomainWorkflow
+    AnalyticsAgent --> DomainWorkflow
     
-    DomainAgents --> Fitness[Fitness Agent]
-    DomainAgents --> Nutrition[Nutrition Agent]
-    DomainAgents --> Finance[Finance Agent]
-    DomainAgents --> Learning[Learning Agent]
-    DomainAgents --> Health[Health Agent]
-    DomainAgents --> Sleep[Sleep Agent]
-    DomainAgents --> Habits[Habits Agent]
-    DomainAgents --> Career[Career Agent]
-    DomainAgents --> Social[Social Agent]
-    DomainAgents --> Projects[Projects Agent]
+    DomainWorkflow --> FitnessAgent[Fitness ADK Agent]
+    DomainWorkflow --> NutritionAgent[Nutrition ADK Agent]
+    DomainWorkflow --> FinanceAgent[Finance ADK Agent]
+    DomainWorkflow --> LearningAgent[Learning ADK Agent]
+    DomainWorkflow --> HealthAgent[Health ADK Agent]
+    DomainWorkflow --> SleepAgent[Sleep ADK Agent]
+    DomainWorkflow --> HabitsAgent[Habits ADK Agent]
+    DomainWorkflow --> CareerAgent[Career ADK Agent]
+    DomainWorkflow --> SocialAgent[Social ADK Agent]
+    DomainWorkflow --> ProjectsAgent[Projects ADK Agent]
     
-    Core --> DataLayer[Data Layer]
-    DataLayer --> UserDB[(User Database)]
-    DataLayer --> GoalsDB[(Goals Database)]
-    DataLayer --> PlansDB[(Plans Database)]
-    DataLayer --> ScheduleDB[(Schedule Database)]
-    DataLayer --> AnalyticsDB[(Analytics Database)]
+    ADKOrchestrator --> ADKTools[ADK Tool Ecosystem]
+    ADKTools --> DataTools[Data Management Tools]
+    ADKTools --> CalendarTools[Calendar Integration Tools]
+    ADKTools --> AnalyticsTools[Analytics Tools]
+    ADKTools --> ExternalTools[External API Tools]
     
-    External[External Integrations] --> Calendar[Calendar APIs]
-    External --> Health[Health APIs]
-    External --> Finance[Finance APIs]
+    DataTools --> UserDB[(User Database)]
+    DataTools --> GoalsDB[(Goals Database)]
+    DataTools --> PlansDB[(Plans Database)]
+    DataTools --> ScheduleDB[(Schedule Database)]
+    DataTools --> AnalyticsDB[(Analytics Database)]
+    
+    ExternalTools --> Calendar[Calendar APIs]
+    ExternalTools --> Health[Health APIs]
+    ExternalTools --> Finance[Finance APIs]
 ```
 
-### Service Architecture Patterns
+### ADK Architecture Patterns
 
-**Domain Agent Pattern**: Each life domain is managed by a specialized AI agent that understands domain-specific requirements, constraints, and optimization strategies. Agents communicate through a shared event bus and can request services from other agents.
+**Multi-Agent Orchestration**: Each life domain is managed by a specialized ADK agent that understands domain-specific requirements, constraints, and optimization strategies. Agents communicate through ADK's agent transfer mechanisms and can delegate tasks to other agents in the hierarchy.
 
-**Event-Driven Coordination**: Changes in one domain trigger events that other relevant domains can respond to. For example, a new fitness goal triggers events that the nutrition agent uses to adjust meal plans and the scheduler uses to block workout times.
+**Workflow-Driven Coordination**: Changes in one domain trigger ADK workflow patterns (Sequential, Parallel, Loop) that coordinate responses across relevant domains. For example, a new fitness goal triggers a Sequential workflow that coordinates nutrition agent meal plan adjustments and scheduler agent workout time blocking.
 
-**Intelligent Scheduling Layer**: A centralized scheduler that understands priorities, energy patterns, dependencies, and constraints across all domains to optimize time allocation.
+**ADK Tool Integration**: Agents leverage ADK's rich tool ecosystem including custom functions, third-party integrations, and other agents as tools. This enables flexible capability extension and seamless integration with external services.
+
+**Intelligent Agent Scheduling**: A centralized ADK scheduler agent that uses Sequential and Parallel workflows to understand priorities, energy patterns, dependencies, and constraints across all domains to optimize time allocation.
 
 ## Components and Interfaces
 
-### Core Orchestration Service
+### ADK Master Workflow Agent
 
 **Responsibilities:**
-- Coordinate between domain agents
-- Manage cross-domain dependencies and conflicts
-- Handle user authentication and authorization
-- Route requests to appropriate services
-- Maintain system-wide state consistency
+- Orchestrate ADK agent workflows across domains
+- Manage cross-domain dependencies and conflicts using ADK coordination patterns
+- Handle user authentication and authorization through ADK tools
+- Route requests to appropriate ADK agents using dynamic routing
+- Maintain system-wide state consistency through ADK agent communication
 
-**Key Interfaces:**
+**ADK Implementation:**
 ```typescript
-interface CoreOrchestrator {
-  createGoal(goal: SMARTGoal): Promise<GoalPlan>
-  updateGoal(goalId: string, updates: Partial<SMARTGoal>): Promise<GoalPlan>
-  resolveConflicts(conflicts: DomainConflict[]): Promise<Resolution[]>
-  getUnifiedDashboard(userId: string): Promise<Dashboard>
+interface MasterWorkflowAgent extends ADKAgent {
+  createGoalWorkflow(goal: SMARTGoal): Promise<WorkflowResult>
+  updateGoalWorkflow(goalId: string, updates: Partial<SMARTGoal>): Promise<WorkflowResult>
+  resolveConflictsWorkflow(conflicts: DomainConflict[]): Promise<WorkflowResult>
+  getDashboardWorkflow(userId: string): Promise<WorkflowResult>
+  
+  // ADK-specific methods
+  transferToAgent(targetAgent: string, context: AgentContext): Promise<AgentTransferResult>
+  executeSequentialWorkflow(agents: ADKAgent[], context: WorkflowContext): Promise<WorkflowResult>
+  executeParallelWorkflow(agents: ADKAgent[], context: WorkflowContext): Promise<WorkflowResult>
 }
 ```
 
-### SMART Goal Engine
+### SMART Goal ADK Agent
 
 **Responsibilities:**
-- Guide users through SMART goal creation
-- Generate action plans and milestones
-- Coordinate with domain agents for implementation
-- Track goal progress and suggest adjustments
+- Guide users through SMART goal creation using ADK tools
+- Generate action plans and milestones through agent workflows
+- Coordinate with domain ADK agents for implementation using agent transfer
+- Track goal progress and suggest adjustments through Sequential workflows
 
-**Key Interfaces:**
+**ADK Implementation:**
 ```typescript
-interface SMARTGoalEngine {
-  validateGoal(goal: GoalInput): ValidationResult
-  generateActionPlan(goal: SMARTGoal): Promise<ActionPlan>
-  trackProgress(goalId: string): Promise<ProgressReport>
-  suggestAdjustments(goalId: string, progress: ProgressData): Promise<Adjustment[]>
+interface SMARTGoalAgent extends ADKAgent {
+  validateGoalTool(goal: GoalInput): Promise<ValidationResult>
+  generateActionPlanWorkflow(goal: SMARTGoal): Promise<ActionPlan>
+  trackProgressWorkflow(goalId: string): Promise<ProgressReport>
+  suggestAdjustmentsWorkflow(goalId: string, progress: ProgressData): Promise<Adjustment[]>
+  
+  // ADK workflow methods
+  coordinateWithDomainAgents(goal: SMARTGoal): Promise<DomainCoordinationResult>
+  executeGoalCreationSequence(goalInput: GoalInput): Promise<GoalCreationResult>
+  monitorGoalProgressLoop(goalId: string): Promise<ProgressMonitoringResult>
 }
 ```
 
-### Domain Agent Services
+### Domain ADK Agents
 
-Each domain agent follows a common interface pattern while implementing domain-specific logic:
+Each domain ADK agent follows a common interface pattern while implementing domain-specific logic using ADK tools and workflows:
 
 ```typescript
-interface DomainAgent {
-  createPlan(goal: DomainGoal, context: UserContext): Promise<DomainPlan>
-  updatePlan(planId: string, changes: PlanChange[]): Promise<DomainPlan>
-  getScheduleRequirements(planId: string): Promise<ScheduleRequirement[]>
-  handleExternalEvent(event: DomainEvent): Promise<void>
-  getProgressMetrics(planId: string): Promise<ProgressMetrics>
+interface DomainADKAgent extends ADKAgent {
+  createPlanWorkflow(goal: DomainGoal, context: UserContext): Promise<DomainPlan>
+  updatePlanWorkflow(planId: string, changes: PlanChange[]): Promise<DomainPlan>
+  getScheduleRequirementsWorkflow(planId: string): Promise<ScheduleRequirement[]>
+  handleExternalEventWorkflow(event: DomainEvent): Promise<void>
+  getProgressMetricsWorkflow(planId: string): Promise<ProgressMetrics>
+  
+  // ADK-specific methods
+  useDomainTools(toolName: string, parameters: ToolParameters): Promise<ToolResult>
+  coordinateWithOtherDomains(domains: string[], context: CoordinationContext): Promise<CoordinationResult>
+  executeAdaptiveWorkflow(workflowType: WorkflowType, context: WorkflowContext): Promise<WorkflowResult>
 }
 ```
 
-**Fitness Agent:**
-- Creates workout routines based on goals, fitness level, and available equipment
-- Integrates with health data and nutrition plans
-- Adjusts intensity based on recovery metrics and schedule constraints
+**Fitness ADK Agent:**
+- Creates workout routines using ADK tools for fitness planning and equipment assessment
+- Integrates with health data through ADK external API tools and coordinates with nutrition agent via agent transfer
+- Adjusts intensity using Sequential workflows that analyze recovery metrics and schedule constraints
 
-**Nutrition Agent:**
-- Generates meal plans aligned with health, fitness, and budget goals
-- Creates shopping lists and meal prep schedules
-- Monitors nutritional intake and suggests adjustments
+**Nutrition ADK Agent:**
+- Generates meal plans using ADK tools that integrate health, fitness, and budget data from other agents
+- Creates shopping lists and meal prep schedules through Parallel workflows
+- Monitors nutritional intake using Loop workflows and suggests adjustments via agent coordination
 
-**Finance Agent:**
-- Creates budgets and savings plans
-- Tracks expenses and provides spending alerts
-- Calculates costs for other domain plans and suggests optimizations
+**Finance ADK Agent:**
+- Creates budgets and savings plans using ADK financial planning tools
+- Tracks expenses through external API integrations and provides spending alerts via ADK notification tools
+- Calculates costs for other domain plans using agent communication and suggests optimizations through Sequential workflows
 
-### Intelligent Scheduler
-
-**Responsibilities:**
-- Import and sync external calendars
-- Optimize time allocation across all life domains
-- Resolve scheduling conflicts intelligently
-- Adapt to user behavior patterns and preferences
-
-**Key Features:**
-- Energy-based scheduling (high-energy tasks during peak hours)
-- Dependency-aware scheduling (prerequisites before dependent tasks)
-- Conflict resolution with priority-based suggestions
-- Adaptive rescheduling based on completion patterns
-
-### Analytics Engine
+### Intelligent Scheduler ADK Agent
 
 **Responsibilities:**
-- Track progress across all life domains
-- Identify patterns and correlations in user behavior
-- Generate insights and optimization suggestions
-- Provide predictive analytics for goal achievement
+- Import and sync external calendars using ADK external API tools
+- Optimize time allocation across all life domains through Parallel agent coordination
+- Resolve scheduling conflicts intelligently using Sequential conflict resolution workflows
+- Adapt to user behavior patterns and preferences through Loop-based learning workflows
 
-**Key Interfaces:**
+**ADK Implementation Features:**
+- Energy-based scheduling using ADK tools for user pattern analysis
+- Dependency-aware scheduling through Sequential workflow orchestration
+- Conflict resolution using agent transfer to domain experts for priority assessment
+- Adaptive rescheduling through Loop workflows that learn from completion patterns
+
+### Analytics ADK Agent
+
+**Responsibilities:**
+- Track progress across all life domains using Parallel data collection workflows
+- Identify patterns and correlations through ADK analytics tools and ML integrations
+- Generate insights and optimization suggestions via Sequential analysis workflows
+- Provide predictive analytics using ADK's model-agnostic ML capabilities
+
+**ADK Implementation:**
 ```typescript
-interface AnalyticsEngine {
-  generateInsights(userId: string, timeframe: TimeRange): Promise<Insight[]>
-  predictGoalSuccess(goalId: string): Promise<SuccessPrediction>
-  identifyBottlenecks(userId: string): Promise<Bottleneck[]>
-  suggestOptimizations(userId: string): Promise<Optimization[]>
+interface AnalyticsADKAgent extends ADKAgent {
+  generateInsightsWorkflow(userId: string, timeframe: TimeRange): Promise<Insight[]>
+  predictGoalSuccessWorkflow(goalId: string): Promise<SuccessPrediction>
+  identifyBottlenecksWorkflow(userId: string): Promise<Bottleneck[]>
+  suggestOptimizationsWorkflow(userId: string): Promise<Optimization[]>
+  
+  // ADK-specific analytics methods
+  collectDataFromAllDomains(userId: string): Promise<DomainDataCollection>
+  executeAnalyticsToolchain(data: AnalyticsData): Promise<AnalyticsResult>
+  coordinateWithDomainAgentsForInsights(insights: Insight[]): Promise<CoordinatedInsights>
 }
 ```
 

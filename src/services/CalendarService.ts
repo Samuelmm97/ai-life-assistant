@@ -1,6 +1,5 @@
 import { ScheduleEntry, CalendarConflict, TimeBlock, SMARTGoal, RecurrenceType, FlexibilityLevel, Priority } from '../types';
-import { ScheduleEntryModel } from '../models/ScheduleEntry';
-import { CalendarConflictModel } from '../models/CalendarConflict';
+import { ScheduleEntryModel, CalendarConflictModel } from '../models';
 import { InMemoryDatabase } from '../database/InMemoryDatabase';
 
 export class CalendarService {

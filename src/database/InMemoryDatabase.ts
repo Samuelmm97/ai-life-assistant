@@ -1,6 +1,7 @@
 import { UserModel, User } from '../models/User';
 import { SMARTGoalModel } from '../models/SMARTGoal';
-import { ActionPlanModel, ActionPlan } from '../models/ActionPlan';
+import { ActionPlanModel } from '../models/ActionPlan';
+import { ActionPlan } from '../types';
 import { SMARTGoal, ScheduleEntry } from '../types';
 
 export class InMemoryDatabase {

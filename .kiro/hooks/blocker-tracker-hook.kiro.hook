@@ -1,0 +1,24 @@
+{
+  "enabled": true,
+  "name": "Blocker Tracker",
+  "description": "Monitors file saves and identifies any blockers that require user action, automatically updating a blockers.md file",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/**/*",
+      "*.ts",
+      "*.tsx",
+      "*.js",
+      "*.jsx",
+      "*.json",
+      "*.md",
+      "*.css",
+      "*.html"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Analyze the recently saved file for any blockers, issues, or tasks that require user action. Look for:\n- TODO comments or tasks\n- FIXME comments\n- Error conditions that need resolution\n- Missing dependencies or imports\n- Incomplete implementations\n- Configuration issues\n- Test failures or missing tests\n- Documentation gaps that block progress\n- Any other items that would prevent forward progress\n\nIf any blockers are found, update the blockers.md file with:\n- Clear description of each blocker\n- File location and line number (if applicable)\n- Priority level (High/Medium/Low)\n- Suggested action to resolve\n- Date identified\n\nIf no blockers are found, do not modify blockers.md. Only include actionable items that genuinely block progress."
+  }
+}

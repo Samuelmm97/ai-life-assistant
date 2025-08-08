@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { GoalStatus, LifeDomain, SMARTGoal } from '../types';
+import { GoalStatus, LifeDomain, SMARTGoal, ActionPlan } from '../types';
 import { GoalService } from '../services/GoalService';
 import { ProgressReport, Adjustment } from '../services/SMARTGoalEngine';
-import { ActionPlan } from '../models/ActionPlan';
+import { SMARTGoalOrchestrationService } from '../services/SMARTGoalOrchestrationService';
 
 interface GoalManagerProps {
   goals: SMARTGoal[];
@@ -14,10 +14,27 @@ export const GoalManager: React.FC<GoalManagerProps> = ({ goals, onUpdateGoal, o
   const [selectedGoal, setSelectedGoal] = useState<SMARTGoal | null>(null);
   const [editingProgress, setEditingProgress] = useState<{ [key: string]: number }>({});
   const [goalService] = useState(() => new GoalService());
+  const [orchestrationService] = useState(() => new SMARTGoalOrchestrationService());
   const [progressReport, setProgressReport] = useState<ProgressReport | null>(null);
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [actionPlan, setActionPlan] = useState<ActionPlan | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'progress' | 'action-plan' | 'adjustments'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'progress' | 'action-plan' | 'adjustments' | 'adk-insights'>('details');
+  const [adkInsights, setAdkInsights] = useState<any>(null);
+  const [systemStatus, setSystemStatus] = useState<any>(null);
+
+  // Load system status on component mount
+  useEffect(() => {
+    const loadSystemStatus = async () => {
+      try {
+        const status = await orchestrationService.getSystemStatus();
+        setSystemStatus(status);
+      } catch (error) {
+        console.error('Error loading system status:', error);
+      }
+    };
+
+    loadSystemStatus();
+  }, [orchestrationService]);
 
   // Load additional data when a goal is selected
   useEffect(() => {
@@ -26,19 +43,29 @@ export const GoalManager: React.FC<GoalManagerProps> = ({ goals, onUpdateGoal, o
         setProgressReport(null);
         setAdjustments([]);
         setActionPlan(null);
+        setAdkInsights(null);
         return;
       }
 
       try {
-        // Load progress report
-        const progress = await goalService.getGoalProgress(selectedGoal.id);
-        setProgressReport(progress);
+        // Use orchestration service for enhanced progress tracking
+        const progressResult = await orchestrationService.getGoalProgress(selectedGoal.id);
+        setProgressReport(progressResult.progress);
 
-        // Load adjustments
+        // Store ADK insights if available
+        if (progressResult.method === 'adk') {
+          setAdkInsights({
+            insights: progressResult.insights,
+            recommendations: progressResult.recommendations,
+            method: progressResult.method
+          });
+        }
+
+        // Load adjustments (fallback to traditional service)
         const goalAdjustments = await goalService.getGoalAdjustments(selectedGoal.id);
         setAdjustments(goalAdjustments);
 
-        // Load action plan
+        // Load action plan (fallback to traditional service)
         const plan = await goalService.getGoalActionPlan(selectedGoal.id);
         setActionPlan(plan);
       } catch (error) {
@@ -47,7 +74,7 @@ export const GoalManager: React.FC<GoalManagerProps> = ({ goals, onUpdateGoal, o
     };
 
     loadGoalData();
-  }, [selectedGoal, goalService]);
+  }, [selectedGoal, goalService, orchestrationService]);
 
   const handleStatusChange = async (goalId: string, newStatus: GoalStatus) => {
     try {
@@ -453,6 +480,95 @@ export const GoalManager: React.FC<GoalManagerProps> = ({ goals, onUpdateGoal, o
     </>
   );
 
+  const renderADKInsightsTab = () => (
+    <>
+      {adkInsights ? (
+        <>
+          <div className="adk-insights-overview">
+            <h4>AI-Powered Insights</h4>
+            <p>Advanced analysis from our AI agents to help optimize your goal achievement:</p>
+            <div className="analysis-method">
+              <span className="method-badge adk">
+                🤖 ADK Analysis
+              </span>
+            </div>
+          </div>
+
+          {adkInsights.insights && adkInsights.insights.length > 0 && (
+            <div className="insights-section">
+              <h5>📊 Key Insights</h5>
+              <div className="insights-list">
+                {adkInsights.insights.map((insight: string, index: number) => (
+                  <div key={index} className="insight-item">
+                    <div className="insight-icon">💡</div>
+                    <p>{insight}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {adkInsights.recommendations && adkInsights.recommendations.length > 0 && (
+            <div className="recommendations-section">
+              <h5>🎯 AI Recommendations</h5>
+              <div className="recommendations-list">
+                {adkInsights.recommendations.map((recommendation: string, index: number) => (
+                  <div key={index} className="recommendation-item">
+                    <div className="recommendation-icon">🚀</div>
+                    <p>{recommendation}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {systemStatus && (
+            <div className="system-status-section">
+              <h5>🔧 System Status</h5>
+              <div className="status-grid">
+                <div className="status-item">
+                  <span className="status-label">ADK Agents:</span>
+                  <span className={`status-value ${systemStatus.adkInitialized ? 'active' : 'inactive'}`}>
+                    {systemStatus.adkInitialized ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <div className="status-item">
+                  <span className="status-label">Capabilities:</span>
+                  <span className="status-value">
+                    {systemStatus.capabilities?.join(', ') || 'Basic'}
+                  </span>
+                </div>
+                {systemStatus.systemHealth && (
+                  <div className="status-item">
+                    <span className="status-label">Health:</span>
+                    <span className={`status-value ${systemStatus.systemHealth.status === 'healthy' ? 'active' : 'inactive'}`}>
+                      {systemStatus.systemHealth.status}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="no-adk-insights">
+          <h4>AI Insights Unavailable</h4>
+          <p>
+            {systemStatus?.adkInitialized
+              ? 'No AI insights available for this goal yet. Try updating your progress or refreshing the data.'
+              : 'ADK agents are not initialized. AI insights require the advanced agent system to be active.'
+            }
+          </p>
+          {!systemStatus?.adkInitialized && (
+            <div className="adk-status-info">
+              <p><strong>Available capabilities:</strong> {systemStatus?.capabilities?.join(', ') || 'Basic goal management'}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="goal-manager">
       <div className="manager-header">
@@ -568,6 +684,14 @@ export const GoalManager: React.FC<GoalManagerProps> = ({ goals, onUpdateGoal, o
                 >
                   🔧 Adjustments
                 </button>
+                {systemStatus?.adkInitialized && (
+                  <button
+                    className={`tab-button adk-insights ${activeTab === 'adk-insights' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('adk-insights')}
+                  >
+                    🤖 AI Insights
+                  </button>
+                )}
               </div>
 
               {/* Tab Content */}
@@ -583,6 +707,9 @@ export const GoalManager: React.FC<GoalManagerProps> = ({ goals, onUpdateGoal, o
                 )}
                 {activeTab === 'adjustments' && (
                   <div className="adjustments-content">{renderAdjustmentsTab()}</div>
+                )}
+                {activeTab === 'adk-insights' && systemStatus?.adkInitialized && (
+                  <div className="adk-insights-content">{renderADKInsightsTab()}</div>
                 )}
               </div>
             </div>

@@ -24,7 +24,8 @@ export enum LifeDomain {
   HABITS = 'habits',
   CAREER = 'career',
   SOCIAL = 'social',
-  PROJECTS = 'projects'
+  PROJECTS = 'projects',
+  PERSONAL = 'personal'
 }
 
 export enum FlexibilityLevel {
@@ -133,3 +134,58 @@ export interface TimeBlock {
   frequency: RecurrencePattern;
   flexibility: FlexibilityLevel;
 }
+
+// Action Plan types
+export interface Milestone {
+  id: string;
+  title: string;
+  description: string;
+  dueDate: Date;
+  completed: boolean;
+  completedAt?: Date;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  priority: Priority;
+  estimatedDuration: Duration;
+  dueDate: Date;
+  completed: boolean;
+  completedAt?: Date;
+  dependencies: string[]; // Task IDs that must be completed first
+}
+
+export interface Dependency {
+  id: string;
+  dependentTaskId: string;
+  prerequisiteTaskId: string;
+  type: 'blocking' | 'preferred'; // blocking = must wait, preferred = better if waited
+}
+
+export interface Resource {
+  id: string;
+  name: string;
+  type: 'time' | 'money' | 'equipment' | 'skill' | 'other';
+  amount: number;
+  unit: string;
+  available: boolean;
+}
+
+export interface ActionPlan {
+  id: string;
+  goalId: string;
+  userId: string;
+  milestones: Milestone[];
+  tasks: Task[];
+  dependencies: Dependency[];
+  estimatedDuration: Duration;
+  requiredResources: Resource[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Re-export AI Goal Planning types
+export * from './ai-goal-planning';
+export * from './ai-goal-planning-utils';

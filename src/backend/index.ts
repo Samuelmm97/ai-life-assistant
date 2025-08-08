@@ -8,7 +8,8 @@ console.log('Database initialized:', database.getStats());
 
 // Export main components for external use
 export { database } from '../database';
-export * from '../models';
+export { UserModel, SMARTGoalModel, ActionPlanModel } from '../models';
+export type { User, UserPreferences } from '../models/User';
 export * from '../types';
 
 // Example usage demonstration

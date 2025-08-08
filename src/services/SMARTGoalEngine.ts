@@ -1,6 +1,4 @@
-import { SMARTGoal, GoalStatus, MeasurableMetric, AchievabilityAssessment, RelevanceContext, TimeConstraint } from '../types';
-import { ActionPlan, Task, Milestone, Resource } from '../models/ActionPlan';
-import { Priority, Duration } from '../types';
+import { SMARTGoal, GoalStatus, MeasurableMetric, AchievabilityAssessment, RelevanceContext, TimeConstraint, ActionPlan, Task, Milestone, Resource, Priority, Duration } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface ValidationResult {

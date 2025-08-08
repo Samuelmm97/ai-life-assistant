@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { GoalStatus, LifeDomain, MeasurableMetric, AchievabilityAssessment, RelevanceContext, TimeConstraint, SMARTGoal } from '../types';
+import { GoalStatus, LifeDomain, MeasurableMetric, SMARTGoal } from '../types';
 import { GoalService } from '../services/GoalService';
 import { ValidationResult } from '../services/SMARTGoalEngine';
+import { SMARTGoalOrchestrationService } from '../services/SMARTGoalOrchestrationService';
 
 interface GoalFormProps {
   onSubmit: (goal: Omit<SMARTGoal, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => void;
@@ -10,8 +11,28 @@ interface GoalFormProps {
 
 export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
   const [goalService] = useState(() => new GoalService());
+  const [orchestrationService] = useState(() => new SMARTGoalOrchestrationService());
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [isValidating, setIsValidating] = useState(false);
+  const [useADKAnalysis, setUseADKAnalysis] = useState(true);
+  const [systemStatus, setSystemStatus] = useState<any>(null);
+
+  // Check system status on component mount
+  useEffect(() => {
+    const checkSystemStatus = async () => {
+      try {
+        const status = await orchestrationService.getSystemStatus();
+        setSystemStatus(status);
+        setUseADKAnalysis(status.adkInitialized);
+      } catch (error) {
+        console.error('Error checking system status:', error);
+        setUseADKAnalysis(false);
+      }
+    };
+
+    checkSystemStatus();
+  }, [orchestrationService]);
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -60,8 +81,9 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
             }
           };
 
-          const validationResult = await goalService.validateGoal(goalData);
-          setValidation(validationResult);
+          // Use orchestration service for enhanced validation
+          const validationResult = await orchestrationService.validateGoal(goalData);
+          setValidation(validationResult.validation);
         } catch (error) {
           console.error('Validation error:', error);
         } finally {
@@ -71,7 +93,7 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [formData, goalService]);
+  }, [formData, orchestrationService]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -320,6 +342,26 @@ export const GoalForm: React.FC<GoalFormProps> = ({ onSubmit, onCancel }) => {
       <div className="form-header">
         <h2>Create a SMART Goal</h2>
         <p>Follow the SMART criteria to create a well-structured, achievable goal</p>
+
+        {/* ADK Status Indicator */}
+        {systemStatus && (
+          <div className={`adk-status-indicator ${systemStatus.adkInitialized ? 'adk-active' : 'adk-inactive'}`}>
+            <div className="status-icon">
+              {systemStatus.adkInitialized ? '🤖' : '⚙️'}
+            </div>
+            <div className="status-text">
+              <span className="status-label">
+                {systemStatus.adkInitialized ? 'AI-Enhanced Analysis' : 'Basic Analysis'}
+              </span>
+              <span className="status-description">
+                {systemStatus.adkInitialized
+                  ? 'Advanced AI agents will help optimize your goal'
+                  : 'Using traditional goal validation methods'
+                }
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Real-time validation feedback */}

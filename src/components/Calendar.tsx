@@ -4,21 +4,29 @@ import { ScheduleEntryForm } from './ScheduleEntryForm';
 import { CalendarIntegration } from './CalendarIntegration';
 import { ScheduleEntry, SMARTGoal } from '../types';
 import { CalendarService } from '../services/CalendarService';
+import { ADKCalendarService } from '../services/ADKCalendarService';
 
 interface CalendarProps {
     userId: string;
     goals: SMARTGoal[];
+    adkCalendarService?: ADKCalendarService;
 }
 
 type CalendarMode = 'view' | 'create' | 'edit' | 'import';
 
-export const Calendar: React.FC<CalendarProps> = ({ userId, goals }) => {
+export const Calendar: React.FC<CalendarProps> = ({ userId, goals, adkCalendarService }) => {
     const [mode, setMode] = useState<CalendarMode>('view');
     const [selectedEntry, setSelectedEntry] = useState<ScheduleEntry | null>(null);
     const [createDate, setCreateDate] = useState<Date | null>(null);
     const [createHour, setCreateHour] = useState<number | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const [calendarService] = useState(() => new CalendarService());
+    const [adkEnabled, setAdkEnabled] = useState(false);
+
+    // Check if ADK is available and enabled
+    useEffect(() => {
+        setAdkEnabled(!!adkCalendarService);
+    }, [adkCalendarService]);
 
     const handleCreateEntry = (date: Date, hour: number) => {
         setCreateDate(date);
@@ -34,9 +42,26 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, goals }) => {
     const handleFormSubmit = async (entryData: Omit<ScheduleEntry, 'id' | 'createdAt' | 'updatedAt'>) => {
         try {
             if (mode === 'create') {
-                await calendarService.createScheduleEntry(entryData);
+                if (adkEnabled && adkCalendarService) {
+                    // Use ADK-enhanced calendar service with agent coordination
+                    const relevantDomains = entryData.goalId ?
+                        goals.find(g => g.id === entryData.goalId)?.relevant.lifeAreas || [] : [];
+
+                    await adkCalendarService.createScheduleEntryWithADK(
+                        userId,
+                        entryData,
+                        relevantDomains
+                    );
+                    console.log('Schedule entry created with ADK coordination');
+                } else {
+                    await calendarService.createScheduleEntry(entryData);
+                }
             } else if (mode === 'edit' && selectedEntry) {
-                await calendarService.updateScheduleEntry(selectedEntry.id, entryData);
+                if (adkEnabled && adkCalendarService) {
+                    await adkCalendarService.updateScheduleEntry(selectedEntry.id, entryData);
+                } else {
+                    await calendarService.updateScheduleEntry(selectedEntry.id, entryData);
+                }
             }
 
             setMode('view');
@@ -63,21 +88,71 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, goals }) => {
 
         // Show a brief notification
         if (importedEntries.length > 0) {
-            // You could add a toast notification here in a real app
             console.log(`Successfully imported ${importedEntries.length} calendar entries`);
+
+            // If ADK is enabled, analyze and optimize the imported schedule
+            if (adkEnabled && adkCalendarService) {
+                adkCalendarService.optimizeScheduleWithADK(userId)
+                    .then(result => {
+                        if (result.success) {
+                            console.log('Schedule optimized with ADK:', result.data);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('ADK schedule optimization failed:', error);
+                    });
+            }
         }
     };
 
     const handleDeleteEntry = async () => {
         if (selectedEntry && window.confirm('Are you sure you want to delete this entry?')) {
             try {
-                await calendarService.deleteScheduleEntry(selectedEntry.id);
+                if (adkEnabled && adkCalendarService) {
+                    await adkCalendarService.deleteScheduleEntry(selectedEntry.id);
+                } else {
+                    await calendarService.deleteScheduleEntry(selectedEntry.id);
+                }
                 setMode('view');
                 setSelectedEntry(null);
                 setRefreshKey(prev => prev + 1);
             } catch (error) {
                 console.error('Error deleting entry:', error);
                 alert('Failed to delete entry. Please try again.');
+            }
+        }
+    };
+
+    // ADK-specific handlers
+    const handleOptimizeSchedule = async () => {
+        if (adkEnabled && adkCalendarService) {
+            try {
+                const result = await adkCalendarService.optimizeScheduleWithADK(userId);
+                if (result.success) {
+                    console.log('Schedule optimized:', result.data);
+                    setRefreshKey(prev => prev + 1);
+                    alert('Schedule optimized successfully!');
+                } else {
+                    console.error('Schedule optimization failed:', result.error);
+                }
+            } catch (error) {
+                console.error('Error optimizing schedule:', error);
+            }
+        }
+    };
+
+    const handleAnalyzeAvailability = async () => {
+        if (adkEnabled && adkCalendarService) {
+            try {
+                const result = await adkCalendarService.analyzeAvailabilityWithADK(userId);
+                if (result.success) {
+                    console.log('Availability analysis:', result.data);
+                    alert('Availability analysis complete! Check console for details.');
+                } else {
+                    console.error('Availability analysis failed:', result.error);
+                }
+            } catch (error) {
+                console.error('Error analyzing availability:', error);
             }
         }
     };
@@ -155,6 +230,24 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, goals }) => {
                     >
                         📥 Import Calendar
                     </button>
+                    {adkEnabled && (
+                        <>
+                            <button
+                                className="action-button adk-button"
+                                onClick={handleOptimizeSchedule}
+                                title="Use AI to optimize your schedule"
+                            >
+                                🤖 Optimize Schedule
+                            </button>
+                            <button
+                                className="action-button adk-button"
+                                onClick={handleAnalyzeAvailability}
+                                title="Analyze your availability patterns"
+                            >
+                                📈 Analyze Availability
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 

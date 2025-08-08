@@ -1,0 +1,20 @@
+{
+  "enabled": true,
+  "name": "Task Completion Git Push",
+  "description": "Automatically commits and pushes changes to GitHub when a task is completed, using git and GitHub CLI with a concise commit message",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/**/*",
+      "package.json",
+      "README.md",
+      "tsconfig.json",
+      "jest.config.js"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A task has been completed and files have been modified. Please commit all changes to git with a concise, descriptive commit message that summarizes what was accomplished, then push the changes to GitHub using the GitHub CLI. Use standard git commands (git add, git commit) followed by git push or gh repo sync if appropriate."
+  }
+}

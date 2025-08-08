@@ -7,38 +7,75 @@ import { GoalManager } from './components/GoalManager';
 import { Calendar } from './components/Calendar';
 import { SMARTGoal } from './types';
 import { GoalService } from './services/GoalService';
+import { ADKGoalService } from './services/ADKGoalService';
+import { ADKCalendarService } from './services/ADKCalendarService';
+import { SMARTGoalOrchestrationService } from './services/SMARTGoalOrchestrationService';
+import { ADKTestComponent } from './components/ADKTestComponent';
 
-type View = 'dashboard' | 'create-goal' | 'manage-goals' | 'calendar';
+type View = 'dashboard' | 'create-goal' | 'manage-goals' | 'calendar' | 'adk-test';
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [goals, setGoals] = useState<SMARTGoal[]>([]);
   const [goalService] = useState(() => new GoalService());
+  const [adkGoalService] = useState(() => new ADKGoalService());
+  const [adkCalendarService] = useState(() => new ADKCalendarService());
+  const [orchestrationService] = useState(() => new SMARTGoalOrchestrationService());
   const [currentUserId] = useState('user-1'); // Mock user ID for MVP
+  const [adkInitialized, setAdkInitialized] = useState(false);
 
-  // Load goals from the goal service on component mount
+  // Initialize ADK services and load goals
   useEffect(() => {
-    const loadGoals = async () => {
+    const initializeServices = async () => {
       try {
+        // Initialize ADK services
+        await adkGoalService.initialize();
+        await adkCalendarService.initialize();
+        setAdkInitialized(true);
+
+        // Load goals from the goal service
         const userGoals = await goalService.getUserGoals(currentUserId);
         setGoals(userGoals);
       } catch (error) {
-        console.error('Error loading goals:', error);
+        console.error('Error initializing services or loading goals:', error);
       }
     };
 
-    loadGoals();
-  }, [goalService, currentUserId]);
+    initializeServices();
+
+    // Cleanup on unmount
+    return () => {
+      adkGoalService.cleanup();
+      adkCalendarService.cleanup();
+    };
+  }, [goalService, adkGoalService, adkCalendarService, currentUserId]);
 
   const handleCreateGoal = async (goalData: Omit<SMARTGoal, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => {
     try {
-      const result = await goalService.createGoal(currentUserId, goalData);
-      setGoals(prev => [...prev, result.goal]);
-      setCurrentView('dashboard');
+      if (adkInitialized) {
+        // Use ADK-enhanced goal creation
+        const result = await adkGoalService.createGoalWithADK(currentUserId, goalData);
+        setGoals(prev => [...prev, result.goal]);
+        setCurrentView('dashboard');
 
-      // Show validation feedback if there were warnings
-      if (result.validation.warnings.length > 0 || result.validation.suggestions.length > 0) {
-        console.log('Goal created with recommendations:', result.validation);
+        // Log ADK analysis results
+        console.log('Goal created with ADK analysis:', result.adkAnalysis);
+      } else {
+        // Fallback to orchestration service
+        const result = await orchestrationService.createGoal(
+          currentUserId,
+          goalData.description,
+          {
+            domain: goalData.relevant.lifeAreas[0],
+            priority: 'medium',
+            useADKAnalysis: false,
+            enableScheduling: true,
+            context: [goalData.description]
+          }
+        );
+
+        setGoals(prev => [...prev, result.goal]);
+        setCurrentView('dashboard');
       }
     } catch (error) {
       console.error('Error creating goal:', error);
@@ -48,11 +85,30 @@ function App() {
 
   const handleUpdateGoal = async (goalId: string, updates: Partial<SMARTGoal>) => {
     try {
-      const updatedGoal = await goalService.updateGoal(goalId, updates);
-      if (updatedGoal) {
-        setGoals(prev => prev.map(goal => 
-          goal.id === goalId ? updatedGoal : goal
-        ));
+      if (adkInitialized) {
+        // Use ADK-enhanced goal updates
+        const result = await adkGoalService.updateGoalWithADK(goalId, updates);
+
+        if (result.goal) {
+          setGoals(prev => prev.map(goal =>
+            goal.id === goalId ? result.goal! : goal
+          ));
+
+          // Log ADK coordination results
+          console.log('Goal updated with ADK coordination:', result.adkResult);
+        }
+      } else {
+        // Fallback to orchestration service
+        const result = await orchestrationService.updateGoal(goalId, updates, {
+          useADK: false,
+          recalculateSchedule: true
+        });
+
+        if (result.goal) {
+          setGoals(prev => prev.map(goal => 
+            goal.id === goalId ? result.goal : goal
+          ));
+        }
       }
     } catch (error) {
       console.error('Error updating goal:', error);
@@ -93,8 +149,11 @@ function App() {
           <Calendar
             userId={currentUserId}
             goals={goals}
+            adkCalendarService={adkInitialized ? adkCalendarService : undefined}
           />
         );
+      case 'adk-test':
+        return <ADKTestComponent />;
       case 'dashboard':
       default:
         return <Dashboard goals={goals} onGoalClick={handleGoalClick} />;
@@ -107,6 +166,7 @@ function App() {
         currentView={currentView} 
         onViewChange={setCurrentView}
         goalCount={goals.length}
+        adkEnabled={adkInitialized}
       />
       <main className="main-content">
         {renderCurrentView()}

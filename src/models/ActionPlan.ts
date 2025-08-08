@@ -1,55 +1,13 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Priority, Duration } from '../types';
-
-export interface Milestone {
-  id: string;
-  title: string;
-  description: string;
-  dueDate: Date;
-  completed: boolean;
-  completedAt?: Date;
-}
-
-export interface Task {
-  id: string;
-  title: string;
-  description: string;
-  priority: Priority;
-  estimatedDuration: Duration;
-  dueDate: Date;
-  completed: boolean;
-  completedAt?: Date;
-  dependencies: string[]; // Task IDs that must be completed first
-}
-
-export interface Dependency {
-  id: string;
-  dependentTaskId: string;
-  prerequisiteTaskId: string;
-  type: 'blocking' | 'preferred'; // blocking = must wait, preferred = better if waited
-}
-
-export interface Resource {
-  id: string;
-  name: string;
-  type: 'time' | 'money' | 'equipment' | 'skill' | 'other';
-  amount: number;
-  unit: string;
-  available: boolean;
-}
-
-export interface ActionPlan {
-  id: string;
-  goalId: string;
-  userId: string;
-  milestones: Milestone[];
-  tasks: Task[];
-  dependencies: Dependency[];
-  estimatedDuration: Duration;
-  requiredResources: Resource[];
-  createdAt: Date;
-  updatedAt: Date;
-}
+import {
+  ActionPlan,
+  Milestone,
+  Task,
+  Dependency,
+  Resource,
+  Priority,
+  Duration
+} from '../types';
 
 export class ActionPlanModel {
   public id: string;

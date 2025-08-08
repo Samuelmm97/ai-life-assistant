@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { GoalStatus, SMARTGoal } from '../types';
+import { SMARTGoalOrchestrationService } from '../services/SMARTGoalOrchestrationService';
 
 interface DashboardProps {
   goals: SMARTGoal[];
@@ -7,6 +8,40 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ goals, onGoalClick }) => {
+  const [orchestrationService] = useState(() => new SMARTGoalOrchestrationService());
+  const [enhancedData, setEnhancedData] = useState<any>(null);
+  const [systemStatus, setSystemStatus] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Load enhanced dashboard data if ADK is available
+  useEffect(() => {
+    const loadEnhancedData = async () => {
+      if (goals.length === 0) return;
+
+      setLoading(true);
+      try {
+        // Get system status
+        const status = await orchestrationService.getSystemStatus();
+        setSystemStatus(status);
+
+        // If ADK is available, get enhanced data
+        if (status.adkInitialized && goals.length > 0) {
+          const userId = goals[0].userId; // Assume all goals belong to same user
+          const dashboardResult = await orchestrationService.getDashboardData(userId);
+
+          if (dashboardResult.method === 'adk') {
+            setEnhancedData(dashboardResult.data);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading enhanced dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadEnhancedData();
+  }, [goals, orchestrationService]);
   const activeGoals = goals.filter(goal => goal.status === GoalStatus.ACTIVE);
   const completedGoals = goals.filter(goal => goal.status === GoalStatus.COMPLETED);
 
@@ -51,6 +86,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ goals, onGoalClick }) => {
       <div className="dashboard-header">
         <h2>Your Life Goals Dashboard</h2>
         <p>Track your progress and stay motivated on your journey to success</p>
+
+        {/* System Status Indicator */}
+        {systemStatus && (
+          <div className={`system-status-banner ${systemStatus.adkInitialized ? 'adk-active' : 'adk-inactive'}`}>
+            <div className="status-content">
+              <span className="status-icon">
+                {systemStatus.adkInitialized ? '🤖' : '⚙️'}
+              </span>
+              <div className="status-info">
+                <span className="status-title">
+                  {systemStatus.adkInitialized ? 'AI-Enhanced Dashboard' : 'Standard Dashboard'}
+                </span>
+                <span className="status-subtitle">
+                  {systemStatus.adkInitialized
+                    ? 'Advanced AI insights and recommendations available'
+                    : 'Basic goal tracking and analytics'
+                  }
+                </span>
+              </div>
+            </div>
+            {loading && (
+              <div className="loading-indicator">
+                <span>🔄</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="stats-grid">
@@ -71,6 +133,53 @@ export const Dashboard: React.FC<DashboardProps> = ({ goals, onGoalClick }) => {
           <div className="stat-number">{totalProgress.toFixed(1)}%</div>
         </div>
       </div>
+
+      {/* Enhanced AI Insights */}
+      {enhancedData && systemStatus?.adkInitialized && (
+        <div className="enhanced-insights-section">
+          <h3>🤖 AI Insights & Recommendations</h3>
+
+          {enhancedData.insights && enhancedData.insights.length > 0 && (
+            <div className="insights-grid">
+              <div className="insight-card">
+                <h4>📊 Key Insights</h4>
+                <ul>
+                  {enhancedData.insights.slice(0, 3).map((insight: string, index: number) => (
+                    <li key={index}>{insight}</li>
+                  ))}
+                </ul>
+              </div>
+
+              {enhancedData.recommendations && enhancedData.recommendations.length > 0 && (
+                <div className="insight-card">
+                  <h4>🎯 Recommendations</h4>
+                  <ul>
+                    {enhancedData.recommendations.slice(0, 3).map((rec: string, index: number) => (
+                      <li key={index}>{rec}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {enhancedData.systemHealth && (
+            <div className="system-health-summary">
+              <h4>🔧 System Health</h4>
+              <div className="health-indicators">
+                <span className={`health-indicator ${enhancedData.systemHealth.status === 'healthy' ? 'healthy' : 'warning'}`}>
+                  Status: {enhancedData.systemHealth.status}
+                </span>
+                {enhancedData.systemHealth.agents && (
+                  <span className="agents-count">
+                    Active Agents: {Object.keys(enhancedData.systemHealth.agents).length}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {goals.length === 0 ? (
         <div className="empty-state">

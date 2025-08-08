@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The AI Life Assistant is a comprehensive personal development platform that helps users achieve their life goals through intelligent planning, organization, and tracking. The system uses AI agents to create personalized plans across multiple life domains, with a core focus on SMART goal methodology. The assistant integrates various life management tools including calendar scheduling, meal planning, fitness routines, health monitoring, sleep optimization, financial planning, learning paths, habit tracking, and more to provide holistic life optimization support. The system can import existing schedules and commitments to ensure all new plans work seamlessly with the user's current lifestyle.
+The AI Life Assistant is a comprehensive personal development platform that helps users achieve their life goals through intelligent planning, organization, and tracking. The system leverages Google's Agent Development Kit (ADK) to orchestrate specialized AI agents that create personalized plans across multiple life domains, with a core focus on SMART goal methodology. Using ADK's flexible multi-agent architecture, the assistant coordinates various specialized agents for different life management domains including calendar scheduling, meal planning, fitness routines, health monitoring, sleep optimization, financial planning, learning paths, habit tracking, and more to provide holistic life optimization support. The ADK framework enables model-agnostic agent development with flexible orchestration patterns (Sequential, Parallel, Loop) and rich tool ecosystem integration. The system can import existing schedules and commitments to ensure all new plans work seamlessly with the user's current lifestyle.
 
 ## Requirements
 
@@ -13,9 +13,9 @@ The AI Life Assistant is a comprehensive personal development platform that help
 #### Acceptance Criteria
 
 1. WHEN a user creates a new goal THEN the system SHALL guide them through the SMART criteria (Specific, Measurable, Achievable, Relevant, Time-bound)
-2. WHEN a goal is created THEN the AI agent SHALL automatically generate a detailed action plan with milestones and deadlines
-3. WHEN a goal requires daily/weekly activities THEN the system SHALL automatically integrate these into the user's calendar
-4. IF a goal involves learning THEN the system SHALL create a structured learning path with resources and checkpoints
+2. WHEN a goal is created THEN the ADK-orchestrated AI agents SHALL automatically generate a detailed action plan with milestones and deadlines using Sequential workflow patterns
+3. WHEN a goal requires daily/weekly activities THEN the system SHALL automatically integrate these into the user's calendar using specialized calendar management agents
+4. IF a goal involves learning THEN the system SHALL create a structured learning path with resources and checkpoints through coordinated learning and planning agents
 
 ### Requirement 2
 
@@ -24,9 +24,9 @@ The AI Life Assistant is a comprehensive personal development platform that help
 #### Acceptance Criteria
 
 1. WHEN a user requests a life plan THEN the system SHALL offer multiple domain options including calendar management, meal planning, fitness routines, financial planning, learning paths, habit tracking, career development, relationship management, and personal projects
-2. WHEN a domain is selected THEN the AI agent SHALL create a personalized plan based on user preferences, current situation, and stated goals
-3. WHEN plans are created THEN the system SHALL identify and highlight interconnections between different life domains
-4. IF conflicts arise between different plans THEN the system SHALL suggest prioritization and scheduling adjustments
+2. WHEN a domain is selected THEN specialized ADK agents SHALL create personalized plans based on user preferences, current situation, and stated goals using domain-specific tools and capabilities
+3. WHEN plans are created THEN the multi-agent system SHALL identify and highlight interconnections between different life domains through agent coordination and communication
+4. IF conflicts arise between different plans THEN the ADK orchestration layer SHALL coordinate between agents to suggest prioritization and scheduling adjustments using Parallel workflow patterns
 
 ### Requirement 3
 
@@ -170,3 +170,14 @@ The AI Life Assistant is a comprehensive personal development platform that help
 2. WHEN patterns emerge in user behavior THEN the system SHALL identify insights and suggest optimizations
 3. WHEN goals are achieved THEN the system SHALL celebrate successes and suggest next-level objectives
 4. IF overall progress is slow THEN the system SHALL analyze bottlenecks and suggest priority adjustments
+
+### Requirement 16
+
+**User Story:** As a developer, I want the system to leverage Google's Agent Development Kit (ADK) architecture so that the AI agents are modular, scalable, and maintainable.
+
+#### Acceptance Criteria
+
+1. WHEN the system is architected THEN it SHALL use ADK's multi-agent framework with specialized agents for each life domain
+2. WHEN agent workflows are designed THEN they SHALL utilize ADK's Sequential, Parallel, and Loop orchestration patterns as appropriate
+3. WHEN agents need tools THEN they SHALL leverage ADK's rich tool ecosystem including custom functions and third-party integrations
+4. IF the system needs to scale THEN it SHALL be deployment-ready using ADK's containerization and cloud deployment capabilities
